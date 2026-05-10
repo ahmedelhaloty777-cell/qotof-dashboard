@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext'
 import DataTable from '../components/DataTable'
 
 export default function Products() {
-  const { products, addProduct, bulkAddProducts, updateProduct, deleteProduct, addToast } = useApp()
+  const { products, addProduct, bulkAddProducts, updateProduct, deleteProduct, saveState, addToast } = useApp()
   const [showForm, setShowForm] = useState(false)
   const [editProduct, setEditProduct] = useState(null)
   const [form, setForm] = useState({ name: '', sellPrice: '', costPrice: '', unit: '', category: '' })
@@ -63,10 +63,10 @@ export default function Products() {
   }
 
   const handleDeleteAll = () => {
-    if (window.confirm('⚠️ هل أنت متأكد من حذف ALL المنتجات؟ هذا الإجراء لا يمكن التراجع عنه.')) {
+    if (window.confirm('⚠️ هل أنت متأكد من حذف كل المنتجات؟ هذا الإجراء لا يمكن التراجع عنه.')) {
       if (window.prompt('اكتب "تأكيد" لحذف الكل') === 'تأكيد') {
-        products.forEach(p => deleteProduct(p.id))
-        addToast(`✅ تم حذف ${products.length} منتج`, 'success')
+        saveState('products', [])
+        addToast('✅ تم حذف كل المنتجات', 'success')
       }
     }
   }

@@ -3,7 +3,7 @@ import React, { createContext, useContext, useReducer, useCallback, useEffect, u
 const AppContext = createContext()
 
 const STORAGE_KEY = 'qotof_'
-const SERVER_URL = import.meta.env.VITE_API_URL || 'https://allowance-businesses-products-burton.trycloudflare.com'
+const SERVER_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 function loadData(key) {
   try {

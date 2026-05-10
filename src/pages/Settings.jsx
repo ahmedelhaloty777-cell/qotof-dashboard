@@ -2,7 +2,7 @@ import React from 'react'
 import { useApp } from '../context/AppContext'
 
 export default function Settings() {
-  const { settings, drivers, addDriver, updateDriver, deleteDriver, dispatch, addToast } = useApp()
+  const { settings, drivers, orders, products, customers, expenses, suppliers, invoices, saveState, addDriver, updateDriver, deleteDriver, dispatch, addToast } = useApp()
   const [showDriverForm, setShowDriverForm] = React.useState(false)
   const [driverForm, setDriverForm] = React.useState({ name: '', phone: '' })
   const [editDriver, setEditDriver] = React.useState(null)
@@ -134,6 +134,51 @@ export default function Settings() {
             </table>
           </div>
         )}
+      </div>
+
+      <div className="card mt-4">
+        <div className="card-header">
+          <h3 className="card-title">💾 تصدير / استيراد البيانات</h3>
+        </div>
+        <div className="flex gap-3" style={{ padding: 16 }}>
+          <div style={{ flex: 1 }}>
+            <p className="text-sm text-muted mb-2">تصدير نسخة احتياطية من كل البيانات</p>
+            <button className="btn btn-primary" onClick={() => {
+              const data = { orders, products, customers, expenses, drivers, suppliers, invoices, settings, exportedAt: new Date().toISOString() }
+              const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = url; a.download = `qotof-backup-${new Date().toISOString().split('T')[0]}.json`
+              a.click(); URL.revokeObjectURL(url)
+              addToast('✅ تم تصدير البيانات', 'success')
+            }}>
+              ⬇️ تصدير البيانات
+            </button>
+          </div>
+          <div style={{ flex: 1 }}>
+            <p className="text-sm text-muted mb-2">استيراد بيانات من ملف نسخة احتياطية</p>
+            <label className="btn btn-outline" style={{ display: 'inline-block', cursor: 'pointer' }}>
+              📂 استيراد بيانات
+              <input type="file" accept=".json" style={{ display: 'none' }}
+                onChange={e => {
+                  const file = e.target.files[0]
+                  if (!file) return
+                  const reader = new FileReader()
+                  reader.onload = (ev) => {
+                    try {
+                      const data = JSON.parse(ev.target.result)
+                      const keys = ['orders', 'products', 'customers', 'expenses', 'drivers', 'suppliers', 'invoices', 'settings']
+                      let count = 0
+                      keys.forEach(k => { if (data[k] !== undefined) { saveState(k, data[k]); count++ } })
+                      addToast(`✅ تم استيراد ${count} أقسام بنجاح`, 'success')
+                    } catch { addToast('❌ ملف غير صالح', 'error') }
+                  }
+                  reader.readAsText(file)
+                  e.target.value = ''
+                }} />
+            </label>
+          </div>
+        </div>
       </div>
 
       {showDriverForm && (

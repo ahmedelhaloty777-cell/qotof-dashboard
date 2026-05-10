@@ -3,6 +3,7 @@ import React, { createContext, useContext, useReducer, useCallback, useEffect, u
 const AppContext = createContext()
 
 const STORAGE_KEY = 'qotof_'
+const SERVER_URL = 'http://localhost:3000'
 
 function loadData(key) {
   try {
@@ -12,14 +13,7 @@ function loadData(key) {
 }
 
 function saveData(key, data) {
-  try {
-    localStorage.setItem(STORAGE_KEY + key, JSON.stringify(data))
-    fetch(`http://localhost:3000/api/${key}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    }).catch(() => {})
-  } catch {}
+  try { localStorage.setItem(STORAGE_KEY + key, JSON.stringify(data)) } catch {}
 }
 
 function getDefaultSettings() {
@@ -93,6 +87,7 @@ function reducer(state, action) {
 
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, null, initialState)
+  const isFirstRender = useRef(true)
 
   const saveState = useCallback((key, data) => {
     dispatch({ type: 'SET_DATA', key, payload: data })
@@ -237,6 +232,43 @@ export function AppProvider({ children }) {
     const threshold = state.settings.threshold || 300
     return subtotal > threshold ? 0 : (state.settings.deliveryFee || 15)
   }, [state.settings])
+
+  const syncServer = useRef(null)
+  const lastJson = useRef('')
+
+  useEffect(() => {
+    if (isFirstRender.current) return
+    const dataKeys = ['orders', 'products', 'customers', 'expenses', 'drivers', 'suppliers', 'invoices', 'settings']
+    const full = {}
+    dataKeys.forEach(k => { full[k] = state[k] || (k === 'settings' ? getDefaultSettings() : []) })
+    const json = JSON.stringify(full)
+    if (json === lastJson.current) return
+    lastJson.current = json
+    clearTimeout(syncServer.current)
+    syncServer.current = setTimeout(() => {
+      fetch(SERVER_URL + '/api/data', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json
+      }).catch(() => {})
+    }, 300)
+  }, [state.orders, state.products, state.customers, state.expenses, state.drivers, state.suppliers, state.invoices, state.settings])
+
+  useEffect(() => {
+    if (!isFirstRender.current) return
+    isFirstRender.current = false
+    fetch(SERVER_URL + '/api/data')
+      .then(res => res.json())
+      .then(data => {
+        if (!data || typeof data !== 'object') return
+        const keys = ['orders', 'products', 'customers', 'expenses', 'drivers', 'suppliers', 'invoices', 'settings']
+        keys.forEach(key => {
+          if (data[key] !== undefined) {
+            dispatch({ type: 'SET_DATA', key, payload: data[key] })
+            try { localStorage.setItem(STORAGE_KEY + key, JSON.stringify(data[key])) } catch {}
+          }
+        })
+      })
+      .catch(() => {})
+  }, [])
 
   const contextValue = {
     ...state,

@@ -16,6 +16,59 @@ function saveData(key, data) {
   try { localStorage.setItem(STORAGE_KEY + key, JSON.stringify(data)) } catch {}
 }
 
+function normalizeServerData(data) {
+  if (!data || typeof data !== 'object') return data
+  const result = { ...data }
+  if (Array.isArray(result.orders)) {
+    result.orders = result.orders.map(o => ({
+      ...o,
+      phone: o.phone || o.customerPhone || '',
+      address: o.address || o.addr || '',
+      createdAt: o.createdAt || (o.date ? o.date + 'T00:00:00.000Z' : new Date().toISOString()),
+      status: o.status === 'new' ? 'pending' : o.status === 'out' ? 'on-way' : ['pending','confirmed','on-way','delivered','cancelled'].includes(o.status) ? o.status : 'pending',
+      customerName: o.customerName || 'عميل',
+      items: Array.isArray(o.items) ? o.items.map(item => ({
+        ...item,
+        productName: item.productName || item.name || '',
+        qty: item.qty || 1,
+        unitPrice: item.unitPrice || item.price || 0,
+      })) : [],
+      total: o.total || (o.subtotal || 0) + (o.deliveryFee || 0),
+    }))
+  }
+  if (Array.isArray(result.products)) {
+    result.products = result.products.map(p => ({
+      ...p,
+      name: p.name || p.productName || '',
+      productName: p.productName || p.name || '',
+      category: p.category || p.cat || '',
+      costPrice: p.costPrice ?? p.cost ?? 0,
+      sellPrice: p.sellPrice ?? p.price ?? 0,
+      price: p.sellPrice ?? p.price ?? 0,
+      unit: p.unit || 'كجم',
+    }))
+  }
+  if (Array.isArray(result.customers)) {
+    result.customers = result.customers.map(c => ({
+      ...c,
+      name: c.name || '',
+      phone: c.phone || c.customerPhone || '',
+      address: c.address || c.addr || '',
+      createdAt: c.createdAt || new Date().toISOString(),
+    }))
+  }
+  if (result.settings) {
+    result.settings = {
+      threshold: result.settings.threshold ?? result.settings.free ?? 300,
+      deliveryFee: result.settings.deliveryFee ?? 15,
+      fontScale: result.settings.fontScale ?? result.settings.fs ?? 100,
+      language: result.settings.language || result.settings.lang || 'ar',
+      theme: result.settings.theme || 'light',
+    }
+  }
+  return result
+}
+
 function getDefaultSettings() {
   return {
     threshold: 300,
@@ -258,12 +311,13 @@ export function AppProvider({ children }) {
     fetch(SERVER_URL + '/api/data')
       .then(res => res.json())
       .then(data => {
-        if (!data || typeof data !== 'object') return
+        const normalized = normalizeServerData(data)
+        if (!normalized || typeof normalized !== 'object') return
         const keys = ['orders', 'products', 'customers', 'expenses', 'drivers', 'suppliers', 'invoices', 'settings']
         keys.forEach(key => {
-          if (data[key] !== undefined) {
-            dispatch({ type: 'SET_DATA', key, payload: data[key] })
-            try { localStorage.setItem(STORAGE_KEY + key, JSON.stringify(data[key])) } catch {}
+          if (normalized[key] !== undefined) {
+            dispatch({ type: 'SET_DATA', key, payload: normalized[key] })
+            try { localStorage.setItem(STORAGE_KEY + key, JSON.stringify(normalized[key])) } catch {}
           }
         })
       })
